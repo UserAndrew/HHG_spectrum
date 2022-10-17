@@ -32,6 +32,15 @@ void ground_state(double func[], const int N, const double Xmin, const double Xm
         func_in[i][1] = 0.;
     }
 
+#if 0
+    std::ofstream print_an("ground_state_analitical.dat");
+    for(int i = 0; i < N; ++i)
+    {
+        print_an << coordinate[i] << '\t' << Psi_solution(coordinate[i]) << std::endl;
+    }
+    print_an.close();
+#endif
+
     double *p = new double[N];
     for(int i = 0; i < N/2; ++i)
     {

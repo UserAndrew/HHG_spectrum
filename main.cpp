@@ -3,14 +3,15 @@
 #include "ground_state.cpp"
 #include "constants.h"
 
-const double omega_L = (2*M_PI*c/lambda_L);
-const double E_0 = sqrt(I_a/I);
-const double tau = tau_p/sqrt(2*log(2.));
+const double omega_L = (2*M_PI*c/(lambda_L/t_au));
+const double E_0 = sqrt(I/I_a);
+const double tau = (tau_p/t_au)/sqrt(2*log(2.));
+const double r_osc = std::abs(E_0/(omega_L*omega_L));
 
 double dA_dt(double t)
 {
-    return -(c*E_0/omega_L)*(omega_L*cos(omega_L*t)*exp(-t*t/(tau*tau)) -
-                  sin(omega_L*t)*(2*t/(tau*tau))*exp(-t*t/(tau*tau)));
+    return -(c*E_0/omega_L)*exp(-t*t/(tau*tau))*(omega_L*cos(omega_L*t) -
+                  sin(omega_L*t)*(2*t/(tau*tau)));
 }
 
 //аналитически вычисленный градиент модельного потенциала
@@ -21,13 +22,23 @@ double grad_V(double x)
 
 int main()
 {
-    const int N = 2048;
+    const int N = 4096;
     const int M = 10000;
-    const double Xmin = -15.;
-    const double Xmax = 15.;
-    const double dt = 0.01;
-    const double dx = (Xmax - Xmin)/N;
-    const double dp = 2.0*M_PI/(dx*N);
+    //const double Xmin = -15.;
+    //const double Xmax = 15.;
+    const double Z_au_min = -4*r_osc;
+    const double Z_au_max = 4*r_osc;
+    //std::cout << "E_0 = " << E_0 << std::endl;
+    //std::cout << "r_osc = " << r_osc << std::endl;
+    //std::cout << "omega_L = " << omega_L << std::endl;
+    //std::cout << "Zmax = " << Z_au_max<<std::endl;
+    const double dz = (Z_au_max - Z_au_min)/N;
+    //const double t_min = (-4)*(tau_p/t_au);//это для расчёта интеграла остаточной плотности тока
+    //const double t_max = 4*(tau_p/t_au);
+    const double dt = 0.02;// в атомных единицах
+    //const int time_steps = (t_max - t_min)/dt;
+    //const double dx = (Xmax - Xmin)/N;
+    const double dp = 2.0*M_PI/(dz*N);
     const double dw = 2.0*M_PI/(dt*N);
     std::vector<double> coordinate(N);
     double *func = new double[N];
@@ -37,7 +48,9 @@ int main()
     plan_fwd = fftw_plan_dft_1d(N, func_in, func_out, FFTW_FORWARD, FFTW_MEASURE);
     plan_bwd = fftw_plan_dft_1d(N, func_out, func_in, FFTW_BACKWARD, FFTW_MEASURE);
 
-    ground_state(func, N, Xmin, Xmax);
+    //ground_state(func, N, Xmin, Xmax);
+    ground_state(func, N, Z_au_min, Z_au_max);
+    //return 0; //new
 #if 0
     std::ofstream print_func("func.dat");
     double x = Xmin;
@@ -57,11 +70,11 @@ int main()
     delete [] func;
     func = nullptr;
 
-    double X = Xmin;
+    double X = Z_au_min;
     for(int i = 0; i < N; ++i)
     {
         coordinate[i] = X;
-        X += dx;
+        X += dz;
     }
 
     double *p = new double[N];
@@ -81,30 +94,36 @@ int main()
     }
 
     fftw_complex *a_t = new fftw_complex[M];
+#if 0
     double re_integral;
     double im_integral;
     double re_norma;
     double im_norma;
+#endif
     double Integral_sqrpsi_gradV = 0;
 
     for(int i = 0; i < M; ++i)
     {
         for(int j = 0; j < N; ++j)
         {
-            func_in[j][0] = func_in[j][0] * cos(V(coordinate[j])*dt) +
-                    func_in[j][1] * sin(V(coordinate[j])*dt);
-            func_in[j][1] = -func_in[j][0] * sin(V(coordinate[j])*dt) +
-                    func_in[j][1] * cos(V(coordinate[j])*dt);
+            double re_part_psi_in = func_in[j][0];
+            double im_part_psi_in = func_in[j][1];
+            func_in[j][0] = re_part_psi_in * cos(V(coordinate[j])*dt) +
+                    im_part_psi_in * sin(V(coordinate[j])*dt);
+            func_in[j][1] = -re_part_psi_in * sin(V(coordinate[j])*dt) +
+                    im_part_psi_in * cos(V(coordinate[j])*dt);
         }
 
         fftw_execute(plan_fwd);
 
         for(int j = 0; j < N; ++j)
         {
-            func_out[j][0] = func_out[j][0] * cos(p[j]*p[j]*dt/2.) +
-                    func_out[j][1] * sin(p[j]*p[j]*dt/2.);
-            func_out[j][1] = -func_out[j][0] * sin(p[j]*p[j]*dt/2.) +
-                    func_out[j][1] * cos(p[j]*p[j]*dt/2.);
+            double re_part_psi_out = func_out[j][0];
+            double im_part_psi_out = func_out[j][1];
+            func_out[j][0] = re_part_psi_out * cos(p[j]*p[j]*dt/2.) +
+                    im_part_psi_out * sin(p[j]*p[j]*dt/2.);
+            func_out[j][1] = -re_part_psi_out * sin(p[j]*p[j]*dt/2.) +
+                    im_part_psi_out * cos(p[j]*p[j]*dt/2.);
         }
 
         fftw_execute(plan_bwd);
@@ -115,6 +134,7 @@ int main()
             func_in[j][1] = (1./N)*func_in[j][1];
         }
 
+#if 0 // это считается только при поиске основного состояния. Для нахождения пси от t это не нужно
         re_integral = 0;
         im_integral = 0;
 
@@ -132,14 +152,15 @@ int main()
             func_in[j][0] = func_in[j][0]*re_norma;
             func_in[j][1] = func_in[j][1]*im_norma;
         }
+#endif
 
         for(int j = 0; j < N; ++j)
         {
              Integral_sqrpsi_gradV += (func_in[j][0]*func_in[j][0] +
-                func_in[j][1]*func_in[j][1])*grad_V(coordinate[j])*dx;
+                func_in[j][1]*func_in[j][1])*grad_V(coordinate[j])*dz;
         }
 
-        a_t[i][0] = -(1/c)*dA_dt(t[i]) - Integral_sqrpsi_gradV;
+        a_t[i][0] = -(1/c)*dA_dt(t[i]) - Integral_sqrpsi_gradV;// на каждом шаге по времени находим дипольное ускорение
         a_t[i][1] = 0.;
 
     }
@@ -160,12 +181,14 @@ int main()
     fftw_destroy_plan(plan_fwd);
     fftw_destroy_plan(plan_bwd);
 
+#if 0
     std::ofstream _out_("a_t.dat");
     for(int i = 0; i < M; ++i)
     {
         _out_ << t[i] << "\t" << a_t[i][0] << std::endl;
     }
     _out_.close();
+#endif
 
     fftw_complex *a_in = new fftw_complex[M];
     fftw_complex *a_omega = new fftw_complex[M];
@@ -179,28 +202,30 @@ int main()
 
     fftw_execute(plan_fwd_a);
 
+#if 0
     std::ofstream print_omega("a_omega.dat");
     for(int i = 0; i < M; ++i)
     {
         print_omega << a_omega[i][0] << '\t' << a_omega[i][1] << std::endl;
     }
     print_omega.close();
+#endif
 
     double *omega = new double[M];
-    for(int i = 0; i < M; ++i)
+    for(int i = 0; i < M/2; ++i)
     {
         omega[i] = dw*i;
     }
-#if 0
+//#if 0
     for(int i = M/2; i < M; ++i)
     {
         omega[i] = -dw*(M - i);
     }
-#endif
+//#endif
     double *HHG = new double[M];
     for(int i = 0; i < M; ++i)
     {
-        HHG[i] = a_omega[i][0]*a_omega[i][0];//+a_omega[i][1]*a_omega[i][1];
+        HHG[i] = a_omega[i][0]*a_omega[i][0];//физически имеет смысл только реальная часть//+a_omega[i][1]*a_omega[i][1];
     }
 
     std::ofstream _out("HHG_spectrum.dat");
