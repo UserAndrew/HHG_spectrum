@@ -28,11 +28,12 @@ int main()
     //const double Xmax = 15.;
     const double Z_au_min = -4*r_osc;
     const double Z_au_max = 4*r_osc;
-    //std::cout << "E_0 = " << E_0 << std::endl;
-    //std::cout << "r_osc = " << r_osc << std::endl;
-    //std::cout << "omega_L = " << omega_L << std::endl;
-    //std::cout << "Zmax = " << Z_au_max<<std::endl;
+    std::cout << "E_0 = " << E_0 << std::endl;
+    std::cout << "r_osc = " << r_osc << std::endl;
+    std::cout << "omega_L = " << omega_L << std::endl;
+    std::cout << "Zmax = " << Z_au_max<<std::endl;
     const double dz = (Z_au_max - Z_au_min)/N;
+    std::cout << "dz = " << dz << std::endl;
     //const double t_min = (-4)*(tau_p/t_au);//это для расчёта интеграла остаточной плотности тока
     //const double t_max = 4*(tau_p/t_au);
     const double dt = 0.02;// в атомных единицах
@@ -94,12 +95,7 @@ int main()
     }
 
     fftw_complex *a_t = new fftw_complex[M];
-#if 0
-    double re_integral;
-    double im_integral;
-    double re_norma;
-    double im_norma;
-#endif
+
     double Integral_sqrpsi_gradV = 0;
 
     for(int i = 0; i < M; ++i)
@@ -133,26 +129,6 @@ int main()
             func_in[j][0] = (1./N)*func_in[j][0];
             func_in[j][1] = (1./N)*func_in[j][1];
         }
-
-#if 0 // это считается только при поиске основного состояния. Для нахождения пси от t это не нужно
-        re_integral = 0;
-        im_integral = 0;
-
-        for(int j = 0; j < N; ++j)
-        {
-            re_integral = re_integral + (func_in[j][0]*func_in[j][0])*dx;
-            im_integral = im_integral + (func_in[j][1]*func_in[j][1])*dx;
-        }
-
-        re_norma = 1./sqrt(re_integral);
-        im_norma = 1./sqrt(im_integral);
-
-        for(int j = 0; j < N; ++j)
-        {
-            func_in[j][0] = func_in[j][0]*re_norma;
-            func_in[j][1] = func_in[j][1]*im_norma;
-        }
-#endif
 
         for(int j = 0; j < N; ++j)
         {
@@ -225,7 +201,7 @@ int main()
     double *HHG = new double[M];
     for(int i = 0; i < M; ++i)
     {
-        HHG[i] = a_omega[i][0]*a_omega[i][0];//физически имеет смысл только реальная часть//+a_omega[i][1]*a_omega[i][1];
+        HHG[i] = a_omega[i][0]*a_omega[i][0]+a_omega[i][1]*a_omega[i][1];//по определению спектра
     }
 
     std::ofstream _out("HHG_spectrum.dat");
