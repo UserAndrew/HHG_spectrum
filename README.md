@@ -1,1 +1,1 @@
-# HHG_spectrum(1D_TDSE)
+# HHG_spectrum (Solution 1D TDSE)
