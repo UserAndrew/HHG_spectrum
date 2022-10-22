@@ -1,5 +1,3 @@
-#include <iostream>
-#include <fstream>
 #include "ground_state.cpp"
 #include "constants.h"
 
@@ -24,18 +22,16 @@ int main()
 {
     const int N = 4096;
     const int M = 10000;
-    //const double Xmin = -15.;
-    //const double Xmax = 15.;
-    const double Z_au_min = -4*r_osc;
-    const double Z_au_max = 4*r_osc;
+    const double Xmin = -7.5;
+    const double Xmax = 7.5;
+    const double Z_au_min = -r_osc;
+    const double Z_au_max = r_osc;
     std::cout << "E_0 = " << E_0 << std::endl;
     std::cout << "r_osc = " << r_osc << std::endl;
     std::cout << "omega_L = " << omega_L << std::endl;
     std::cout << "Zmax = " << Z_au_max<<std::endl;
     const double dz = (Z_au_max - Z_au_min)/N;
     std::cout << "dz = " << dz << std::endl;
-    //const double t_min = (-4)*(tau_p/t_au);//это для расчёта интеграла остаточной плотности тока
-    //const double t_max = 4*(tau_p/t_au);
     const double dt = 0.02;// в атомных единицах
     //const int time_steps = (t_max - t_min)/dt;
     //const double dx = (Xmax - Xmin)/N;
@@ -49,8 +45,8 @@ int main()
     plan_fwd = fftw_plan_dft_1d(N, func_in, func_out, FFTW_FORWARD, FFTW_MEASURE);
     plan_bwd = fftw_plan_dft_1d(N, func_out, func_in, FFTW_BACKWARD, FFTW_MEASURE);
 
-    //ground_state(func, N, Xmin, Xmax);
-    ground_state(func, N, Z_au_min, Z_au_max);
+    ground_state(func, N, Xmin, Xmax);
+    //ground_state(func, N, Z_au_min, Z_au_max);
     //return 0; //new
 #if 0
     std::ofstream print_func("func.dat");
@@ -71,11 +67,11 @@ int main()
     delete [] func;
     func = nullptr;
 
-    double X = Z_au_min;
+    double Z = Z_au_min;
     for(int i = 0; i < N; ++i)
     {
-        coordinate[i] = X;
-        X += dz;
+        coordinate[i] = Z;
+        Z += dz;
     }
 
     double *p = new double[N];
@@ -96,10 +92,9 @@ int main()
 
     fftw_complex *a_t = new fftw_complex[M];
 
-    double Integral_sqrpsi_gradV = 0;
-
     for(int i = 0; i < M; ++i)
     {
+        double Integral_sqrpsi_gradV = 0;
         for(int j = 0; j < N; ++j)
         {
             double re_part_psi_in = func_in[j][0];
@@ -157,14 +152,14 @@ int main()
     fftw_destroy_plan(plan_fwd);
     fftw_destroy_plan(plan_bwd);
 
-#if 0
+//#if 0
     std::ofstream _out_("a_t.dat");
     for(int i = 0; i < M; ++i)
     {
         _out_ << t[i] << "\t" << a_t[i][0] << std::endl;
     }
     _out_.close();
-#endif
+//#endif
 
     fftw_complex *a_in = new fftw_complex[M];
     fftw_complex *a_omega = new fftw_complex[M];
