@@ -12,6 +12,10 @@ double dA_dt(double t)
                   sin(omega_L*t)*(2*t/(tau*tau)));
 }
 
+double E_t(double t)
+{
+    return (-1/c)*dA_dt(t);
+}
 //аналитически вычисленный градиент модельного потенциала
 double grad_V(double x)
 {
@@ -26,12 +30,12 @@ int main()
     const double Xmax = 7.5;
     const double Z_au_min = -r_osc;
     const double Z_au_max = r_osc;
-    std::cout << "E_0 = " << E_0 << std::endl;
-    std::cout << "r_osc = " << r_osc << std::endl;
-    std::cout << "omega_L = " << omega_L << std::endl;
-    std::cout << "Zmax = " << Z_au_max<<std::endl;
+    //std::cout << "E_0 = " << E_0 << std::endl;
+    //std::cout << "r_osc = " << r_osc << std::endl;
+    //std::cout << "omega_L = " << omega_L << std::endl;
+    //std::cout << "Zmax = " << Z_au_max<<std::endl;
     const double dz = (Z_au_max - Z_au_min)/N;
-    std::cout << "dz = " << dz << std::endl;
+    //std::cout << "dz = " << dz << std::endl;
     const double dt = 0.02;// в атомных единицах
     //const int time_steps = (t_max - t_min)/dt;
     //const double dx = (Xmax - Xmin)/N;
@@ -99,10 +103,10 @@ int main()
         {
             double re_part_psi_in = func_in[j][0];
             double im_part_psi_in = func_in[j][1];
-            func_in[j][0] = re_part_psi_in * cos(V(coordinate[j])*dt) +
-                    im_part_psi_in * sin(V(coordinate[j])*dt);
-            func_in[j][1] = -re_part_psi_in * sin(V(coordinate[j])*dt) +
-                    im_part_psi_in * cos(V(coordinate[j])*dt);
+            func_in[j][0] = re_part_psi_in * cos((V(coordinate[j])+coordinate[j]*E_t(t[i]))*dt) +
+                    im_part_psi_in * sin((V(coordinate[j])+coordinate[j]*E_t(t[i]))*dt);
+            func_in[j][1] = -re_part_psi_in * sin((V(coordinate[j])+coordinate[j]*E_t(t[i]))*dt) +
+                    im_part_psi_in * cos((V(coordinate[j])+coordinate[j]*E_t(t[i]))*dt);
         }
 
         fftw_execute(plan_fwd);
@@ -125,13 +129,7 @@ int main()
             func_in[j][1] = (1./N)*func_in[j][1];
         }
 
-        for(int j = 0; j < N; ++j)
-        {
-             Integral_sqrpsi_gradV += (func_in[j][0]*func_in[j][0] +
-                func_in[j][1]*func_in[j][1])*grad_V(coordinate[j])*dz;
-        }
-
-        a_t[i][0] = -(1/c)*dA_dt(t[i]) - Integral_sqrpsi_gradV;// на каждом шаге по времени находим дипольное ускорение
+        a_t[i][0] = E_t(t[i]) - Integral_sqrpsi_gradV;// на каждом шаге по времени находим дипольное ускорение
         a_t[i][1] = 0.;
 
     }
@@ -173,14 +171,14 @@ int main()
 
     fftw_execute(plan_fwd_a);
 
-#if 0
+//#if 0
     std::ofstream print_omega("a_omega.dat");
     for(int i = 0; i < M; ++i)
     {
         print_omega << a_omega[i][0] << '\t' << a_omega[i][1] << std::endl;
     }
     print_omega.close();
-#endif
+//#endif
 
     double *omega = new double[M];
     for(int i = 0; i < M/2; ++i)
