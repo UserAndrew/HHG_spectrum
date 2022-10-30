@@ -129,6 +129,12 @@ int main()
             func_in[j][1] = (1./N)*func_in[j][1];
         }
 
+        for(int j = 0; j < N; ++j)
+        {
+            Integral_sqrpsi_gradV += (func_in[j][0]*func_in[j][0]+
+                    func_in[j][1]*func_in[j][1])*grad_V(coordinate[j])*dt;
+        }
+
         a_t[i][0] = E_t(t[i]) - Integral_sqrpsi_gradV;// на каждом шаге по времени находим дипольное ускорение
         a_t[i][1] = 0.;
 
@@ -158,7 +164,7 @@ int main()
     }
     _out_.close();
 //#endif
-
+    //return 0;
     fftw_complex *a_in = new fftw_complex[M];
     fftw_complex *a_omega = new fftw_complex[M];
     fftw_plan plan_fwd_a = fftw_plan_dft_1d(M, a_in, a_omega, FFTW_FORWARD, FFTW_MEASURE);
