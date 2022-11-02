@@ -28,18 +28,19 @@ int main()
     const int M = 10000;
     const double Xmin = -7.5;
     const double Xmax = 7.5;
-    const double Z_au_min = -r_osc;
-    const double Z_au_max = r_osc;
+    //const double Z_au_min = -r_osc;
+    //const double Z_au_max = r_osc;
     //std::cout << "E_0 = " << E_0 << std::endl;
     //std::cout << "r_osc = " << r_osc << std::endl;
     //std::cout << "omega_L = " << omega_L << std::endl;
     //std::cout << "Zmax = " << Z_au_max<<std::endl;
-    const double dz = (Z_au_max - Z_au_min)/N;
+    //const double dz = (Z_au_max - Z_au_min)/N;
     //std::cout << "dz = " << dz << std::endl;
     const double dt = 0.02;// в атомных единицах
     //const int time_steps = (t_max - t_min)/dt;
-    //const double dx = (Xmax - Xmin)/N;
-    const double dp = 2.0*M_PI/(dz*N);
+    const double dx = (Xmax - Xmin)/N;
+    //const double dp = 2.0*M_PI/(dz*N);
+    const double dp = 2.0*M_PI/(dx*N);
     const double dw = 2.0*M_PI/(dt*N);
     std::vector<double> coordinate(N);
     double *func = new double[N];
@@ -70,23 +71,31 @@ int main()
 
     delete [] func;
     func = nullptr;
-
+#if 0
     double Z = Z_au_min;
     for(int i = 0; i < N; ++i)
     {
         coordinate[i] = Z;
         Z += dz;
     }
+#endif
+    double X = Xmin;
+    for(int i = 0; i < N; ++i)
+    {
+        coordinate[i] = X;
+        X += dx;
+    }
 
     double *p = new double[N];
-    for(int i = 0; i < N/2; ++i)
+    double p_Nyq = 2*M_PI/(2*dx);
+    for(int i = 0; i < N; ++i)
     {
-        p[i] = dp*i;
+        p[i] = -p_Nyq +  dp*i;
     }
-    for(int i = N/2; i < N; ++i)
+    /*for(int i = N/2; i < N; ++i)
     {
         p[i] = -dp*(N-i);
-    }
+    }*/
 
     double *t = new double[M];
     for(int i = 0; i < M; ++i)
@@ -187,16 +196,17 @@ int main()
 //#endif
 
     double *omega = new double[M];
-    for(int i = 0; i < M/2; ++i)
+    double omega_Nyq = 2*M_PI/(2*dt);
+    for(int i = 0; i < M; ++i)
     {
-        omega[i] = dw*i;
+        omega[i] = -omega_Nyq + dw*i;
     }
-//#if 0
+#if 0
     for(int i = M/2; i < M; ++i)
     {
         omega[i] = -dw*(M - i);
     }
-//#endif
+#endif
     double *HHG = new double[M];
     for(int i = 0; i < M; ++i)
     {
