@@ -2,9 +2,9 @@
 #include "constants.h"
 
 const double omega_L = (2*M_PI*c/(lambda_L/t_au));
-const double E_0 = sqrt(I/I_a);
+const double E_0 = /*sqrt(I/I_a);*/ 0;
 const double tau = (tau_p/t_au)/sqrt(2*log(2.));
-const double r_osc = std::abs(E_0/(omega_L*omega_L));
+//const double r_osc = std::abs(E_0/(omega_L*omega_L));
 
 double dA_dt(double t)
 {
@@ -26,13 +26,15 @@ int main()
 {
     const int N = 4096;
     const int M = 10000;
-    const double Xmin = -7.5;
-    const double Xmax = 7.5;
-    //const double Z_au_min = -r_osc;
-    //const double Z_au_max = r_osc;
+    const double Xmin = -63.5;
+    const double Xmax = 63.5;
+    //const double Z_au_min = -4*r_osc;
+    //const double Z_au_max = 4*r_osc;
     //std::cout << "E_0 = " << E_0 << std::endl;
     //std::cout << "r_osc = " << r_osc << std::endl;
     //std::cout << "omega_L = " << omega_L << std::endl;
+    //std::cout << "tau = " << tau << std::endl;
+    //return 0;
     //std::cout << "Zmax = " << Z_au_max<<std::endl;
     //const double dz = (Z_au_max - Z_au_min)/N;
     //std::cout << "dz = " << dz << std::endl;
@@ -79,23 +81,23 @@ int main()
         Z += dz;
     }
 #endif
+//#if 0
     double X = Xmin;
     for(int i = 0; i < N; ++i)
     {
         coordinate[i] = X;
         X += dx;
     }
-
+//#endif
     double *p = new double[N];
-    double p_Nyq = 2*M_PI/(2*dx);
-    for(int i = 0; i < N; ++i)
+    for(int i = 0; i <= N/2; ++i)
     {
-        p[i] = -p_Nyq +  dp*i;
+        p[i] = dp*i;
     }
-    /*for(int i = N/2; i < N; ++i)
+    for(int i = N/2+1; i < N; ++i)
     {
         p[i] = -dp*(N-i);
-    }*/
+    }
 
     double *t = new double[M];
     for(int i = 0; i < M; ++i)
@@ -112,10 +114,10 @@ int main()
         {
             double re_part_psi_in = func_in[j][0];
             double im_part_psi_in = func_in[j][1];
-            func_in[j][0] = re_part_psi_in * cos((V(coordinate[j])+coordinate[j]*E_t(t[i]))*dt) +
-                    im_part_psi_in * sin((V(coordinate[j])+coordinate[j]*E_t(t[i]))*dt);
-            func_in[j][1] = -re_part_psi_in * sin((V(coordinate[j])+coordinate[j]*E_t(t[i]))*dt) +
-                    im_part_psi_in * cos((V(coordinate[j])+coordinate[j]*E_t(t[i]))*dt);
+            func_in[j][0] = re_part_psi_in * cos((V(coordinate[j])-coordinate[j]*E_t(t[i]))*dt) +
+                    im_part_psi_in * sin((V(coordinate[j])-coordinate[j]*E_t(t[i]))*dt);
+            func_in[j][1] = -re_part_psi_in * sin((V(coordinate[j])-coordinate[j]*E_t(t[i]))*dt) +
+                    im_part_psi_in * cos((V(coordinate[j])-coordinate[j]*E_t(t[i]))*dt);
         }
 
         fftw_execute(plan_fwd);
