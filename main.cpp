@@ -2,9 +2,9 @@
 #include "constants.h"
 
 const double omega_L = (2*M_PI*c/(lambda_L/t_au));
-const double E_0 = /*sqrt(I/I_a);*/ 0;
+const double E_0 = sqrt(I/I_a);// 0;
 const double tau = (tau_p/t_au)/sqrt(2*log(2.));
-//const double r_osc = std::abs(E_0/(omega_L*omega_L));
+const double r_osc = std::abs(E_0/(omega_L*omega_L));
 
 double dA_dt(double t)
 {
@@ -14,7 +14,7 @@ double dA_dt(double t)
 
 double E_t(double t)
 {
-    return (-1/c)*dA_dt(t);
+    return (-1/c)*dA_dt(t); // домножил на 0 23.03.2023, чтобы проверить дипольное ускорение в отсутствие внешнего электрического поля
 }
 //аналитически вычисленный градиент модельного потенциала
 double grad_V(double x)
@@ -24,26 +24,21 @@ double grad_V(double x)
 
 int main()
 {
-    const int N = 4096;
-    const int M = 10000;
-    const double Xmin = -63.5;
-    const double Xmax = 63.5;
-    //const double Z_au_min = -4*r_osc;
-    //const double Z_au_max = 4*r_osc;
+    const int M = 32500;
+    const double dz = 0.1; // T = M*dz (a.u)
+    const double Z_au_min = -4*r_osc;// -221.721
+    const double Z_au_max = 4*r_osc;// 221.721
+    const double N1 = (Z_au_max - Z_au_min)/dz;
+    const int N = pow(2, (int(log(N1)/log(2)))+1);
+    std::cout << "N = " << N << std::endl;
     //std::cout << "E_0 = " << E_0 << std::endl;
     //std::cout << "r_osc = " << r_osc << std::endl;
     //std::cout << "omega_L = " << omega_L << std::endl;
     //std::cout << "tau = " << tau << std::endl;
     //return 0;
-    //std::cout << "Zmax = " << Z_au_max<<std::endl;
-    //const double dz = (Z_au_max - Z_au_min)/N;
-    //std::cout << "dz = " << dz << std::endl;
     const double dt = 0.02;// в атомных единицах
-    //const int time_steps = (t_max - t_min)/dt;
-    const double dx = (Xmax - Xmin)/N;
-    //const double dp = 2.0*M_PI/(dz*N);
-    const double dp = 2.0*M_PI/(dx*N);
-    const double dw = 2.0*M_PI/(dt*N);
+    const double dp = 2.0*M_PI/(dz*N);
+    const double dw = 2.0*M_PI/(dt*M);
     std::vector<double> coordinate(N);
     double *func = new double[N];
     fftw_complex *func_in = new fftw_complex[N];
@@ -52,49 +47,61 @@ int main()
     plan_fwd = fftw_plan_dft_1d(N, func_in, func_out, FFTW_FORWARD, FFTW_MEASURE);
     plan_bwd = fftw_plan_dft_1d(N, func_out, func_in, FFTW_BACKWARD, FFTW_MEASURE);
 
-    ground_state(func, N, Xmin, Xmax);
-    //ground_state(func, N, Z_au_min, Z_au_max);
-    //return 0; //new
-#if 0
-    std::ofstream print_func("func.dat");
-    double x = Xmin;
-    for(int i = 0; i < N; ++i)
+    double Z = dz/2;
+    for(int i = N/2; i < N; ++i)
     {
-        print_func << x << "\t" << func[i] << std::endl;
-        x += dx;
+        coordinate[i] = Z;
+        Z += dz;//dx;
     }
-    print_func.close();
-#endif
+    Z = - dz/2;
+    for(int i = N/2 - 1; i >= 0; --i)
+    {
+        coordinate[i] = Z;
+        Z -= dz;//dx;
+    }
+
+    /*если не надо пересчитывать основное состояние, например, при изменении параметров,
+    то ради ускорения вычислений будем считывать данные с ранее записанного файла*/
+
+    //ground_state(func, N, dz, coordinate);
+    //return 0; //new
+//#if 0
+    std::ifstream file_with_gs("ground_state.dat");
+    int var = 0;
+    if(file_with_gs)
+    {
+        double r = 0.;
+        while(true)
+        {
+            file_with_gs >> r >> func[var];
+            if(file_with_gs.eof()) break;
+            var++;
+        }
+    }
+
     for(int i = 0; i < N; ++i)
     {
         func_in[i][0] = func[i];
         func_in[i][1] = 0.0;
     }
-
+//#endif
     delete [] func;
     func = nullptr;
+
 #if 0
-    double Z = Z_au_min;
-    for(int i = 0; i < N; ++i)
-    {
-        coordinate[i] = Z;
-        Z += dz;
-    }
-#endif
-//#if 0
     double X = Xmin;
     for(int i = 0; i < N; ++i)
     {
         coordinate[i] = X;
         X += dx;
     }
-//#endif
+#endif
     double *p = new double[N];
-    for(int i = 0; i <= N/2; ++i)
+    for(int i = 0; i < N/2; ++i)
     {
         p[i] = dp*i;
     }
-    for(int i = N/2+1; i < N; ++i)
+    for(int i = N/2; i < N; ++i)
     {
         p[i] = -dp*(N-i);
     }
@@ -102,7 +109,7 @@ int main()
     double *t = new double[M];
     for(int i = 0; i < M; ++i)
     {
-       t[i] = i*dt;
+       t[i] = -3*tau + i*dt;
     }
 
     fftw_complex *a_t = new fftw_complex[M];
@@ -148,7 +155,6 @@ int main()
 
         a_t[i][0] = E_t(t[i]) - Integral_sqrpsi_gradV;// на каждом шаге по времени находим дипольное ускорение
         a_t[i][1] = 0.;
-
     }
 #if 0
     std::ofstream print_psi("psi.dat");
@@ -174,8 +180,8 @@ int main()
         _out_ << t[i] << "\t" << a_t[i][0] << std::endl;
     }
     _out_.close();
+    //return 0;   //временный выход из программы 22.03.2023
 //#endif
-    //return 0;
     fftw_complex *a_in = new fftw_complex[M];
     fftw_complex *a_omega = new fftw_complex[M];
     fftw_plan plan_fwd_a = fftw_plan_dft_1d(M, a_in, a_omega, FFTW_FORWARD, FFTW_MEASURE);
@@ -188,14 +194,14 @@ int main()
 
     fftw_execute(plan_fwd_a);
 
-//#if 0
+#if 0
     std::ofstream print_omega("a_omega.dat");
     for(int i = 0; i < M; ++i)
     {
         print_omega << a_omega[i][0] << '\t' << a_omega[i][1] << std::endl;
     }
     print_omega.close();
-//#endif
+#endif
 
     double *omega = new double[M];
     double omega_Nyq = 2*M_PI/(2*dt);
@@ -204,11 +210,24 @@ int main()
         omega[i] = -omega_Nyq + dw*i;
     }
 #if 0
-    for(int i = M/2; i < M; ++i)
+    for(int i = M/2+1; i < M; ++i)
     {
-        omega[i] = -dw*(M - i);
+        omega[i] = -dw*(M-i);//-omega_Nyq + dw*(i - M/2);
     }
 #endif
+    std::ofstream print_a_omega("a_omega.dat");
+    for(int i = M/2; i < M; ++i)
+    {
+        print_a_omega << omega[i-M/2] <<'\t' << std::sqrt(a_omega[i][0]*a_omega[i][0]+
+                a_omega[i][1]*a_omega[i][1]) << std::endl;
+    }
+    for(int i = 0; i < M/2; ++i)
+    {
+        print_a_omega << omega[i+M/2] <<'\t' << std::sqrt(a_omega[i][0]*a_omega[i][0]+
+                a_omega[i][1]*a_omega[i][1]) << std::endl;
+    }
+    print_a_omega.close();
+    //return 0; //new 3.12.2022
     double *HHG = new double[M];
     for(int i = 0; i < M; ++i)
     {
@@ -217,10 +236,14 @@ int main()
 
     std::ofstream _out("HHG_spectrum.dat");
     //_out.precision(10);
-    for(int i = 0; i < M; ++i)
+    for(int i = M/2; i < M; ++i)
+    {
+        _out << omega[i-M/2]/omega_L << "\t" << HHG[i] << std::endl;
+    }
+    for(int i = 0; i < M/2; ++i)
     {
         //_out << std::fixed << HHG[i] << "\t" << omega[i]/omega_L << std::endl;
-        _out << omega[i]/omega_L << "\t" << HHG[i] << std::endl;
+        _out << omega[i+M/2]/omega_L << "\t" << HHG[i] << std::endl;
     }
     _out.close();
 
