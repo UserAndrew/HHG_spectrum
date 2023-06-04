@@ -22,24 +22,27 @@ double grad_V(double x)
     return x/sqrt(pow(x*x+2, 3));
 }
 
+//функция-маска для устранения шумов, связанных с остаточными осцилляциями дипольного ускорения
+double Mask(double t, double t_max)
+{
+    return 0.5*(1.0 + tanh((-(t - (t_max - t_tau))/(t_tau/8))*(180/M_PI)));
+}
+
 int main()
 {
     const int M = 32500;
     const double dz = 0.1; // T = M*dz (a.u)
-    const double Z_au_min = -4*r_osc;// -221.721
-    const double Z_au_max = 4*r_osc;// 221.721
+    const double Z_au_min = -2*4*r_osc;// -221.721*2
+    const double Z_au_max = 2*4*r_osc;// 221.721*2
     const double N1 = (Z_au_max - Z_au_min)/dz;
     const int N = pow(2, (int(log(N1)/log(2)))+1);
     std::cout << "N = " << N << std::endl;
-    //std::cout << "E_0 = " << E_0 << std::endl;
-    //std::cout << "r_osc = " << r_osc << std::endl;
-    //std::cout << "omega_L = " << omega_L << std::endl;
-    //std::cout << "tau = " << tau << std::endl;
-    //return 0;
     const double dt = 0.02;// в атомных единицах
     const double dp = 2.0*M_PI/(dz*N);
     const double dw = 2.0*M_PI/(dt*M);
-    std::vector<double> coordinate(N);
+    std::vector<double> coordinate(N);      //массив координаты z
+    std::vector<double> array_E_t(M);       //массив E(t)
+    //std::vector<double> dipole_moment(M);   //массив диполного момента
     double *func = new double[N];
     fftw_complex *func_in = new fftw_complex[N];
     fftw_complex *func_out = new fftw_complex[N];
@@ -60,12 +63,22 @@ int main()
         Z -= dz;//dx;
     }
 
+#if 0
+    std::ofstream print_grad_V("grad_V.dat");
+    for(int i = 0; i < N; ++i)
+    {
+        print_grad_V << grad_V(coordinate[i]) << '\t' << coordinate[i] << std::endl;
+    }
+    print_grad_V.close();
+    //return 0;
+#endif
+
     /*если не надо пересчитывать основное состояние, например, при изменении параметров,
     то ради ускорения вычислений будем считывать данные с ранее записанного файла*/
 
-    //ground_state(func, N, dz, coordinate);
+    ground_state(func, N, dz, coordinate);
     //return 0; //new
-//#if 0
+#if 0
     std::ifstream file_with_gs("ground_state.dat");
     int var = 0;
     if(file_with_gs)
@@ -78,24 +91,17 @@ int main()
             var++;
         }
     }
-
+#endif
     for(int i = 0; i < N; ++i)
     {
         func_in[i][0] = func[i];
         func_in[i][1] = 0.0;
     }
-//#endif
+
+
     delete [] func;
     func = nullptr;
 
-#if 0
-    double X = Xmin;
-    for(int i = 0; i < N; ++i)
-    {
-        coordinate[i] = X;
-        X += dx;
-    }
-#endif
     double *p = new double[N];
     for(int i = 0; i < N/2; ++i)
     {
@@ -112,11 +118,28 @@ int main()
        t[i] = -3*tau + i*dt;
     }
 
-    fftw_complex *a_t = new fftw_complex[M];
+    double t_max = t[M-1];
+    double *a_t = new double[M];
 
+#if 0
+    //записываем точки для построения графика функции маски
+    std::ofstream print_acceleration_mult_mask("Mask_a_t.dat");
     for(int i = 0; i < M; ++i)
     {
-        double Integral_sqrpsi_gradV = 0;
+        //print_acceleration_mult_mask << t[i] << '\t' << a_in[i][0] << std::endl;
+        print_acceleration_mult_mask << t[i] << '\t' << Mask(t[i],t_max) << std::endl;
+    }
+    print_acceleration_mult_mask.close();
+    return 0; // 26.03.2023
+    //маска расчитана правильно
+#endif
+
+    double Integral_sqrpsi_gradV;
+    //double Integral_sqrpsi_z;
+    for(int i = 0; i < M; ++i)
+    {
+        Integral_sqrpsi_gradV = 0;
+        //Integral_sqrpsi_z = 0;           //для расчёта дипольного момента
         for(int j = 0; j < N; ++j)
         {
             double re_part_psi_in = func_in[j][0];
@@ -150,12 +173,23 @@ int main()
         for(int j = 0; j < N; ++j)
         {
             Integral_sqrpsi_gradV += (func_in[j][0]*func_in[j][0]+
-                    func_in[j][1]*func_in[j][1])*grad_V(coordinate[j])*dt;
+                    func_in[j][1]*func_in[j][1])*grad_V(coordinate[j])*dz;
         }
 
-        a_t[i][0] = E_t(t[i]) - Integral_sqrpsi_gradV;// на каждом шаге по времени находим дипольное ускорение
-        a_t[i][1] = 0.;
+        a_t[i] = E_t(t[i]) - Integral_sqrpsi_gradV;// на каждом шаге по времени находим дипольное ускорение
+        array_E_t[i] = E_t(t[i]);
+#if 0
+        for(int j = 0; j < N; ++j)
+        {
+            Integral_sqrpsi_z += (func_in[j][0]*func_in[j][0]+
+                    func_in[j][1]*func_in[j][1])*coordinate[j]*dz;
+        }
+
+        dipole_moment[i] = Integral_sqrpsi_z;
+        //if(i%100 == 0) std::cout << dipole_moment[i] << std::endl; //1.04.2023
+#endif
     }
+    //return 0; // 1.04.2023
 #if 0
     std::ofstream print_psi("psi.dat");
     for(int i = 0; i < N; ++i)
@@ -177,22 +211,49 @@ int main()
     std::ofstream _out_("a_t.dat");
     for(int i = 0; i < M; ++i)
     {
-        _out_ << t[i] << "\t" << a_t[i][0] << std::endl;
+        _out_ << t[i] << "\t" << a_t[i] << std::endl;
     }
     _out_.close();
     //return 0;   //временный выход из программы 22.03.2023
-//#endif
+//#endif 
+
+    //Считаем спектр дипольного ускорения
     fftw_complex *a_in = new fftw_complex[M];
     fftw_complex *a_omega = new fftw_complex[M];
     fftw_plan plan_fwd_a = fftw_plan_dft_1d(M, a_in, a_omega, FFTW_FORWARD, FFTW_MEASURE);
 
     for(int i = 0; i < M; ++i)
     {
-        a_in[i][0] = a_t[i][0];
-        a_in[i][1] = a_t[i][1];
+        a_in[i][0] = a_t[i]*Mask(t[i],t_max);  //Домножаем дипольное ускорение на маску
+        a_in[i][1] = 0.;
     }
 
     fftw_execute(plan_fwd_a);
+//#if 0
+    std::ofstream print_acceleration_mult_mask("Mask_a_t.dat");
+    for(int i = 0; i < M; ++i)
+    {
+        print_acceleration_mult_mask << t[i] << '\t' << a_in[i][0] << std::endl;
+        //print_acceleration_mult_mask << t[i] << '\t' << Mask(t[i],t_max) << std::endl;
+    }
+//#endif
+    //return 0;   //26.03.2023
+
+    delete [] a_t;
+    a_t = nullptr;
+
+    //Считаем спектр внешнего электрического поля
+    fftw_complex *E_in = new fftw_complex[M];
+    fftw_complex *E_omega = new fftw_complex[M];
+    fftw_plan plan_fwd_E = fftw_plan_dft_1d(M, E_in, E_omega, FFTW_FORWARD, FFTW_MEASURE);
+
+    for(int i = 0; i < M; ++i)
+    {
+        E_in[i][0] = array_E_t[i];
+        E_in[i][1] = 0.;
+    }
+
+    fftw_execute(plan_fwd_E);
 
 #if 0
     std::ofstream print_omega("a_omega.dat");
@@ -203,6 +264,7 @@ int main()
     print_omega.close();
 #endif
 
+    //заполняем массив частот omega
     double *omega = new double[M];
     double omega_Nyq = 2*M_PI/(2*dt);
     for(int i = 0; i < M; ++i)
@@ -220,13 +282,61 @@ int main()
     {
         print_a_omega << omega[i-M/2] <<'\t' << std::sqrt(a_omega[i][0]*a_omega[i][0]+
                 a_omega[i][1]*a_omega[i][1]) << std::endl;
+        //print_a_omega << omega[i-M/2] <<'\t' << a_omega[i][0]*a_omega[i][0]+
+                //a_omega[i][1]*a_omega[i][1] << std::endl;
     }
     for(int i = 0; i < M/2; ++i)
     {
         print_a_omega << omega[i+M/2] <<'\t' << std::sqrt(a_omega[i][0]*a_omega[i][0]+
                 a_omega[i][1]*a_omega[i][1]) << std::endl;
+        //print_a_omega << omega[i+M/2] <<'\t' << std::sqrt(a_omega[i][0]*a_omega[i][0]+
+                //a_omega[i][1]*a_omega[i][1]) << std::endl;
     }
     print_a_omega.close();
+
+    //Записываем в файл квадрат спектра внешнего электрического поля
+    std::ofstream print_spectra_E("E_omega.dat");
+    for(int i = M/2; i < M; ++i)
+    {
+        print_spectra_E << omega[i-M/2]/omega_L << '\t' << E_omega[i][0]*E_omega[i][0]+
+                                           E_omega[i][1]*E_omega[i][1] << std::endl;
+    }
+    for(int i = 0; i < M/2; ++i)
+    {
+        print_spectra_E << omega[i+M/2]/omega_L << '\t' << E_omega[i][0]*E_omega[i][0]+
+                                           E_omega[i][1]*E_omega[i][1] << std::endl;
+    }
+    print_spectra_E.close();
+
+#if 0
+    //Считаем спектр дипольного момента
+    fftw_complex *dip_mom = new fftw_complex[M];
+    fftw_complex *dm_omega = new fftw_complex[M];
+    fftw_plan plan_fwd_dm = fftw_plan_dft_1d(M, dip_mom, dm_omega, FFTW_FORWARD, FFTW_MEASURE);
+
+    for(int i = 0; i < M; ++i)
+    {
+        dip_mom[i][0] = dipole_moment[i];
+        dip_mom[i][1] = 0.;
+    }
+
+    fftw_execute(plan_fwd_dm);
+
+    //Записываем в файл квадрат спектра дипольного момента
+    std::ofstream print_dm_omega("psi_x_psi_omega.dat");
+    for(int i = M/2; i < M; ++i)
+    {
+        print_dm_omega << omega[i-M/2]/omega_L << "\t" << dm_omega[i][0]*dm_omega[i][0]+
+                dm_omega[i][1]*dm_omega[i][1] << std::endl;
+    }
+    for(int i = 0; i < M/2; ++i)
+    {
+        print_dm_omega << omega[i+M/2]/omega_L << '\t' << dm_omega[i][0]*dm_omega[i][0]+
+                                           dm_omega[i][1]*dm_omega[i][1] << std::endl;
+    }
+    print_dm_omega.close();
+#endif
+
     //return 0; //new 3.12.2022
     double *HHG = new double[M];
     for(int i = 0; i < M; ++i)
@@ -234,6 +344,7 @@ int main()
         HHG[i] = a_omega[i][0]*a_omega[i][0]+a_omega[i][1]*a_omega[i][1];//по определению спектра
     }
 
+    //Записываем в файл квадрат спектра дипольного ускорения
     std::ofstream _out("HHG_spectrum.dat");
     //_out.precision(10);
     for(int i = M/2; i < M; ++i)
@@ -247,18 +358,26 @@ int main()
     }
     _out.close();
 
+    //fftw_destroy_plan(plan_fwd_dm);
+    fftw_destroy_plan(plan_fwd_E);
     fftw_destroy_plan(plan_fwd_a);
 
     delete [] HHG;
     HHG = nullptr;
+    //delete [] dip_mom;
+   // dip_mom = nullptr;
+    //delete [] dm_omega;
+    //dm_omega = nullptr;
+    delete [] E_in;
+    E_in = nullptr;
+    delete [] E_omega;
+    E_omega = nullptr;
     delete [] omega;
     omega = nullptr;
     delete [] a_in;
     a_in = nullptr;
     delete [] a_omega;
     a_omega = nullptr;
-    delete [] a_t;
-    a_t = nullptr;
     delete [] t;
     t = nullptr;
     delete [] p;
