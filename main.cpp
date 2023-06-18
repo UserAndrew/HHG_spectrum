@@ -229,14 +229,14 @@ int main()
     }
 
     fftw_execute(plan_fwd_a);
-//#if 0
+#if 0
     std::ofstream print_acceleration_mult_mask("Mask_a_t.dat");
     for(int i = 0; i < M; ++i)
     {
         print_acceleration_mult_mask << t[i] << '\t' << a_in[i][0] << std::endl;
         //print_acceleration_mult_mask << t[i] << '\t' << Mask(t[i],t_max) << std::endl;
     }
-//#endif
+#endif
     //return 0;   //26.03.2023
 
     delete [] a_t;

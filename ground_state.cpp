@@ -28,7 +28,7 @@ void ground_state(double func[], const int N,
         func_in[i][1] = 0.;
     }
 
-#if 0
+//#if 0
     std::ofstream print_an("ground_state_analitical.dat");
     for(int i = 0; i < N; ++i)
     {
@@ -36,7 +36,7 @@ void ground_state(double func[], const int N,
         print_an << coord[i] << '\t' << Psi_solution(coord[i]) << std::endl;
     }
     print_an.close();
-#endif
+//#endif
 
     std::ofstream print_func_in("real_part_func_in.dat");
     for(int i = 0; i < N; ++i)
@@ -47,11 +47,11 @@ void ground_state(double func[], const int N,
     print_func_in.close();
 
     double *p = new double[N];
-    for(int i = 0; i <= N/2; ++i)
+    for(int i = 0; i < N/2; ++i)
     {
         p[i] = dp*i;
     }
-    for(int i = N/2+1; i < N; ++i)
+    for(int i = N/2; i < N; ++i)
     {
         p[i] = -dp*(N-i);
     }
@@ -102,7 +102,7 @@ void ground_state(double func[], const int N,
     {
         func[i] = func_in[i][0];
     }
-#if 0
+//#if 0
     std::ofstream print_gs("ground_state.dat");
     for(int i = 0; i < N; ++i)
     {
@@ -110,7 +110,7 @@ void ground_state(double func[], const int N,
         print_gs << coord[i] << '\t' << func_in[i][0] << std::endl;
     }
     print_gs.close();
-#endif
+//#endif
 
     fftw_destroy_plan(plan_bwd);
     fftw_destroy_plan(plan_fwd);
